@@ -1,0 +1,41 @@
+.react-flow-dark {
+  background-color: transparent;
+}
+
+.react-flow-dark .react-flow__node {
+  cursor: pointer;
+  width: auto;
+}
+
+.react-flow-dark .react-flow__edge {
+  cursor: default;
+}
+
+.react-flow-dark .react-flow__edge-path {
+  stroke-width: 2;
+}
+
+.react-flow-dark .react-flow__controls {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 0.5rem;
+}
+
+.react-flow-dark .react-flow__controls-button {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 0.5rem;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 0.5rem;
+  margin: 0.25rem;
+}
+
+.react-flow-dark .react-flow__controls-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.react-flow-dark .react-flow__attribution {
+  display: none;
+}
