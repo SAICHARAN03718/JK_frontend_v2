@@ -19,7 +19,8 @@ import {
   Truck,
   MapPin,
   Calendar,
-  Filter
+  Filter,
+  FileStack
 } from 'lucide-react'
 
 // Import mock data
@@ -30,7 +31,7 @@ import {
   searchConsignments 
 } from '../data/mockData'
 
-const Dashboard = ({ onNavigateToHome, onNavigateToSearch }) => {
+const Dashboard = ({ onNavigateToHome, onNavigateToSearch, onNavigateToGenerateBill, onNavigateToBulkBilling }) => {
   const [activeRoute, setActiveRoute] = useState('dashboard')
   const [searchTerm, setSearchTerm] = useState('')
   const [statistics, setStatistics] = useState(null)
@@ -51,6 +52,11 @@ const Dashboard = ({ onNavigateToHome, onNavigateToSearch }) => {
   // Handle sidebar route changes
   const handleRouteChange = (routeId) => {
     setActiveRoute(routeId)
+    
+    if (routeId === 'bulk-billing') {
+      onNavigateToBulkBilling()
+      return
+    }
     
     if (routeId === 'dashboard') {
       setFilteredConsignments(recentShipments)
@@ -94,6 +100,13 @@ const Dashboard = ({ onNavigateToHome, onNavigateToSearch }) => {
       icon: CheckCircle, 
       count: statistics?.completedCount || 0,
       description: 'Billed'
+    },
+    { 
+      id: 'bulk-billing', 
+      label: 'Bulk Billing', 
+      icon: FileStack, 
+      count: null,
+      description: 'Generate Multiple Bills'
     },
     { 
       id: 'dashboard', 

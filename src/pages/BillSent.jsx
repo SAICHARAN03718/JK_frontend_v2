@@ -2,14 +2,19 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { 
   CheckCircle, 
+  Home, 
   Send, 
-  Home,
-  Sparkles,
-  Mail,
-  Clock
+  Sparkles, 
+  Mail, 
+  Clock, 
+  FileStack 
 } from 'lucide-react';
 
-const BillSent = ({ onNavigateToDashboard }) => {
+const BillSent = ({ onNavigateToDashboard, billContext }) => {
+  const isBulkBilling = billContext?.type === 'bulk';
+  const billCount = billContext?.count || 1;
+  const companyName = billContext?.company || '';
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative overflow-hidden">
       {/* Enhanced Background Effects */}
@@ -56,7 +61,9 @@ const BillSent = ({ onNavigateToDashboard }) => {
               </div>
               <div>
                 <h1 className="text-xl lg:text-2xl font-bold text-white tracking-tight">JK LOGISTICS</h1>
-                <p className="text-white/60 text-xs">Bill Sent Successfully</p>
+                <p className="text-white/60 text-xs">
+                  {isBulkBilling ? `${billCount} Bills Sent Successfully` : 'Bill Sent Successfully'}
+                </p>
               </div>
             </div>
 
@@ -91,7 +98,7 @@ const BillSent = ({ onNavigateToDashboard }) => {
             className="relative mb-8"
           >
             <div className="w-32 h-32 bg-gradient-to-br from-green-500/20 to-green-600/20 rounded-full flex items-center justify-center mx-auto backdrop-blur-lg border border-green-400/30 shadow-2xl">
-              <CheckCircle className="w-16 h-16 text-green-400" />
+              {isBulkBilling ? <FileStack className="w-16 h-16 text-green-400" /> : <CheckCircle className="w-16 h-16 text-green-400" />}
             </div>
             
             {/* Sparkle effects around the icon */}
@@ -131,10 +138,13 @@ const BillSent = ({ onNavigateToDashboard }) => {
             className="mb-8"
           >
             <h1 className="text-5xl font-bold text-white tracking-tight mb-4">
-              Bill Sent Successfully!
+              {isBulkBilling ? `${billCount} Bills Sent Successfully!` : 'Bill Sent Successfully!'}
             </h1>
             <p className="text-xl text-white/70 mb-6">
-              Your invoice has been delivered to the client
+              {isBulkBilling 
+                ? `All ${billCount} invoices for ${companyName} have been delivered to clients`
+                : 'Your invoice has been delivered to the client'
+              }
             </p>
           </motion.div>
 
@@ -151,10 +161,15 @@ const BillSent = ({ onNavigateToDashboard }) => {
                 <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
                   <Mail className="w-5 h-5 text-blue-400" />
                 </div>
-                <h3 className="text-white font-semibold text-lg">Email Delivered</h3>
+                <h3 className="text-white font-semibold text-lg">
+                  {isBulkBilling ? 'Bulk Emails Delivered' : 'Email Delivered'}
+                </h3>
               </div>
               <p className="text-white/60 text-sm">
-                Invoice sent to client's email address with tracking confirmation
+                {isBulkBilling 
+                  ? `${billCount} invoices sent to respective client email addresses with tracking confirmation`
+                  : 'Invoice sent to client\'s email address with tracking confirmation'
+                }
               </p>
             </div>
 
@@ -177,6 +192,28 @@ const BillSent = ({ onNavigateToDashboard }) => {
                 })}
               </p>
             </div>
+
+            {/* Show company info for bulk billing */}
+            {isBulkBilling && (
+              <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 md:col-span-2">
+                <div className="flex items-center space-x-3 mb-3">
+                  <div className="w-10 h-10 bg-indigo-500/20 rounded-xl flex items-center justify-center">
+                    <FileStack className="w-5 h-5 text-indigo-400" />
+                  </div>
+                  <h3 className="text-white font-semibold text-lg">Bulk Processing Summary</h3>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-white/50">Company:</p>
+                    <p className="text-white font-medium">{companyName}</p>
+                  </div>
+                  <div>
+                    <p className="text-white/50">Bills Generated:</p>
+                    <p className="text-white font-medium">{billCount} invoices</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </motion.div>
 
           {/* Action Buttons */}
@@ -202,15 +239,15 @@ const BillSent = ({ onNavigateToDashboard }) => {
               </div>
             </motion.button>
 
-            {/* Send Another Bill Button */}
+            {/* Generate Another Bill Button */}
             <motion.button
               className="bg-white/10 backdrop-blur-lg border border-white/20 hover:bg-white/15 text-white px-8 py-4 rounded-2xl font-semibold text-lg transition-all duration-300"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
               <div className="flex items-center space-x-3">
-                <Send className="w-5 h-5" />
-                <span>Send Another Bill</span>
+                {isBulkBilling ? <FileStack className="w-5 h-5" /> : <Send className="w-5 h-5" />}
+                <span>{isBulkBilling ? 'Generate More Bulk Bills' : 'Send Another Bill'}</span>
               </div>
             </motion.button>
           </motion.div>
@@ -223,7 +260,10 @@ const BillSent = ({ onNavigateToDashboard }) => {
             className="mt-12"
           >
             <p className="text-white/50 text-sm italic">
-              "Excellence in logistics, delivered with precision" ✨
+              {isBulkBilling 
+                ? `"Efficiency at scale - ${billCount} bills processed seamlessly" ✨`
+                : '"Excellence in logistics, delivered with precision" ✨'
+              }
             </p>
           </motion.div>
 

@@ -1049,13 +1049,13 @@ const SearchResults = ({ onNavigateToDashboard, onNavigateToGenerateBill, search
               />
               
               <CurvedArrow 
-                path="M 568 380 Q 520 380 390 490"
+                path="M 390 490 Q 520 380 568 380"
                 delay={0.6}
                 color="#10b981"
               />
               
               <CurvedArrow 
-                path="M 632 380 Q 720 380 850 500"
+                path="M 850 500 Q 720 380 632 380"
                 delay={0.7}
                 color="#10b981"
               />
