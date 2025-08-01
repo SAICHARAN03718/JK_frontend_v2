@@ -9,6 +9,7 @@ import SearchResults from './pages/SearchResults'
 import GenerateBill from './pages/GenerateBill'
 import BillSent from './pages/BillSent'
 import BulkBilling from './pages/BulkBilling'
+import ClientRegistration from './pages/ClientRegistration'
 
 function App() {
   const [currentPage, setCurrentPage] = useState('home')
@@ -64,6 +65,11 @@ function App() {
     setCurrentPage('bulk-billing')
   }, [])
 
+  const navigateToClientRegistration = useCallback(() => {
+    console.log('Navigating to client-registration')
+    setCurrentPage('client-registration')
+  }, [])
+
   // Debug logging
   console.log('App render - currentPage:', currentPage)
   console.log('Search term:', searchTerm, 'Search results:', searchResults?.length)
@@ -90,6 +96,7 @@ function App() {
             onNavigateToSearch={navigateToSearch}
             onNavigateToGenerateBill={navigateToGenerateBill}
             onNavigateToBulkBilling={navigateToBulkBilling}
+            onNavigateToClientRegistration={navigateToClientRegistration}
           />
         )
       
@@ -125,6 +132,13 @@ function App() {
             searchResults={searchResults}
             onNavigateToDashboard={navigateToDashboard}
             onNavigateToGenerateBill={navigateToGenerateBill}
+          />
+        )
+      
+      case 'client-registration':
+        return (
+          <ClientRegistration 
+            onNavigateToDashboard={navigateToDashboard}
           />
         )
       

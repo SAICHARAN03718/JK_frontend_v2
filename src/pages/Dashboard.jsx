@@ -20,7 +20,8 @@ import {
   MapPin,
   Calendar,
   Filter,
-  FileStack
+  FileStack,
+  UserPlus
 } from 'lucide-react'
 
 // Import mock data
@@ -31,7 +32,7 @@ import {
   searchConsignments 
 } from '../data/mockData'
 
-const Dashboard = ({ onNavigateToHome, onNavigateToSearch, onNavigateToGenerateBill, onNavigateToBulkBilling }) => {
+const Dashboard = ({ onNavigateToHome, onNavigateToSearch, onNavigateToGenerateBill, onNavigateToBulkBilling, onNavigateToClientRegistration }) => {
   const [activeRoute, setActiveRoute] = useState('dashboard')
   const [searchTerm, setSearchTerm] = useState('')
   const [statistics, setStatistics] = useState(null)
@@ -55,6 +56,11 @@ const Dashboard = ({ onNavigateToHome, onNavigateToSearch, onNavigateToGenerateB
     
     if (routeId === 'bulk-billing') {
       onNavigateToBulkBilling()
+      return
+    }
+    
+    if (routeId === 'client-registration') {
+      onNavigateToClientRegistration()
       return
     }
     
@@ -107,6 +113,13 @@ const Dashboard = ({ onNavigateToHome, onNavigateToSearch, onNavigateToGenerateB
       icon: FileStack, 
       count: null,
       description: 'Generate Multiple Bills'
+    },
+    { 
+      id: 'client-registration', 
+      label: 'Client Registration', 
+      icon: UserPlus, 
+      count: null,
+      description: 'Register New Client'
     },
     { 
       id: 'dashboard', 
