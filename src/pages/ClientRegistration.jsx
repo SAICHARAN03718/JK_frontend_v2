@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { 
   ArrowLeft, 
@@ -17,7 +17,103 @@ import {
   X
 } from 'lucide-react';
 
+// Dynamic Field Component (moved outside to prevent re-creation)
+const DynamicField = ({ fieldData, onUpdateFieldName, onRemove, fieldIndex, sectionKey }) => {
+  const handleChange = useCallback((e) => {
+    onUpdateFieldName(e.target.value);
+  }, [onUpdateFieldName]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 20 }}
+      className="flex items-center space-x-3 p-4 bg-white/5 rounded-xl border border-white/10"
+    >
+      <div className="flex-1">
+        <input
+          type="text"
+          value={fieldData.fieldName || ''}
+          onChange={handleChange}
+          placeholder="Field Name (e.g., GST Number, Consignee Name, Payment Terms)"
+          className="w-full px-4 py-2 bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400/50 transition-all duration-300"
+          autoComplete="off"
+        />
+      </div>
+      <motion.button
+        type="button"
+        onClick={onRemove}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        className="p-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 rounded-lg transition-all duration-300"
+      >
+        <X className="w-4 h-4 text-red-400" />
+      </motion.button>
+    </motion.div>
+  );
+};
+
+// Form Section Component (moved outside)
+const FormSection = ({ title, icon: Icon, children }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6 space-y-4"
+  >
+    <div className="flex items-center space-x-3 mb-6">
+      <div className="w-10 h-10 bg-gradient-to-br from-blue-500/80 to-blue-600/80 rounded-xl flex items-center justify-center">
+        <Icon className="w-5 h-5 text-white" />
+      </div>
+      <h3 className="text-xl font-bold text-white">{title}</h3>
+    </div>
+    {children}
+  </motion.div>
+);
+
+// Configuration Section Component (moved outside)
+const ConfigurationSection = ({ title, icon, sectionKey, fields, onUpdateField, onRemoveField, onAddField }) => {
+  return (
+    <FormSection title={title} icon={icon}>
+      <div className="space-y-4">
+        {fields.map((field, index) => {
+          const updateFieldName = (value) => onUpdateField(sectionKey, index, 'fieldName', value);
+          const removeField = () => onRemoveField(sectionKey, index);
+          
+          return (
+            <DynamicField
+              key={`${sectionKey}-${field.id || index}`}
+              fieldData={field}
+              onUpdateFieldName={updateFieldName}
+              onRemove={removeField}
+              fieldIndex={index}
+              sectionKey={sectionKey}
+            />
+          );
+        })}
+        
+        <motion.button
+          type="button"
+          onClick={() => onAddField(sectionKey)}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="w-full flex items-center justify-center space-x-2 p-4 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/30 rounded-xl transition-all duration-300 text-blue-300 hover:text-blue-200"
+        >
+          <Plus className="w-5 h-5" />
+          <span className="font-medium">Add Field</span>
+        </motion.button>
+      </div>
+    </FormSection>
+  );
+};
+
 const ClientRegistration = ({ onNavigateToDashboard }) => {
+  // Use a ref to generate truly unique IDs
+  const idCounter = React.useRef(0);
+  const generateId = useCallback(() => {
+    idCounter.current += 1;
+    return `field_${Date.now()}_${idCounter.current}`;
+  }, []);
+
   const [formData, setFormData] = useState({
     clientName: '',
     whatsappNo: '',
@@ -31,7 +127,7 @@ const ClientRegistration = ({ onNavigateToDashboard }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
-  const handleInputChange = (field, value, section = null) => {
+  const handleInputChange = useCallback((field, value, section = null) => {
     if (section) {
       setFormData(prev => ({
         ...prev,
@@ -46,33 +142,37 @@ const ClientRegistration = ({ onNavigateToDashboard }) => {
         [field]: value
       }));
     }
-  };
+  }, []);
 
   // Add new field to a configuration section
-  const addField = (section) => {
+  const addField = useCallback((section) => {
+    const newField = {
+      id: generateId(),
+      fieldName: ''
+    };
     setFormData(prev => ({
       ...prev,
-      [section]: [...prev[section], { fieldName: '' }]
+      [section]: [...prev[section], newField]
     }));
-  };
+  }, [generateId]);
 
   // Remove field from a configuration section
-  const removeField = (section, index) => {
+  const removeField = useCallback((section, index) => {
     setFormData(prev => ({
       ...prev,
       [section]: prev[section].filter((_, i) => i !== index)
     }));
-  };
+  }, []);
 
   // Update field in a configuration section
-  const updateField = (section, index, field, value) => {
+  const updateField = useCallback((section, index, field, value) => {
     setFormData(prev => ({
       ...prev,
       [section]: prev[section].map((item, i) => 
         i === index ? { ...item, [field]: value } : item
       )
     }));
-  };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -103,7 +203,35 @@ const ClientRegistration = ({ onNavigateToDashboard }) => {
     }
   };
 
-  const InputField = ({ 
+  // Memoized configuration sections to prevent re-renders
+  const memoizedSections = useMemo(() => ({
+    invoice1: {
+      title: "Invoice 1 Configuration",
+      icon: FileText,
+      sectionKey: "invoice1Fields",
+      fields: formData.invoice1Fields
+    },
+    invoice2: {
+      title: "Invoice 2 Configuration", 
+      icon: Receipt,
+      sectionKey: "invoice2Fields",
+      fields: formData.invoice2Fields
+    },
+    pod: {
+      title: "POD Configuration",
+      icon: Package,
+      sectionKey: "podFields", 
+      fields: formData.podFields
+    },
+    bill: {
+      title: "Bill Configuration",
+      icon: Receipt,
+      sectionKey: "billFields",
+      fields: formData.billFields
+    }
+  }), [formData.invoice1Fields, formData.invoice2Fields, formData.podFields, formData.billFields]);
+
+  const InputField = useCallback(({ 
     label, 
     value, 
     onChange, 
@@ -132,79 +260,7 @@ const ClientRegistration = ({ onNavigateToDashboard }) => {
         />
       </div>
     </div>
-  );
-
-  const FormSection = ({ title, icon: Icon, children }) => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6 space-y-4"
-    >
-      <div className="flex items-center space-x-3 mb-6">
-        <div className="w-10 h-10 bg-gradient-to-br from-blue-500/80 to-blue-600/80 rounded-xl flex items-center justify-center">
-          <Icon className="w-5 h-5 text-white" />
-        </div>
-        <h3 className="text-xl font-bold text-white">{title}</h3>
-      </div>
-      {children}
-    </motion.div>
-  );
-
-  // Dynamic Field Component
-  const DynamicField = ({ fieldData, onUpdateFieldName, onRemove }) => (
-    <motion.div
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 20 }}
-      className="flex items-center space-x-3 p-4 bg-white/5 rounded-xl border border-white/10"
-    >
-      <div className="flex-1">
-        <input
-          type="text"
-          value={fieldData.fieldName}
-          onChange={(e) => onUpdateFieldName(e.target.value)}
-          placeholder="Field Name (e.g., GST Number, Consignee Name, Payment Terms)"
-          className="w-full px-4 py-2 bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400/50 transition-all duration-300"
-        />
-      </div>
-      <motion.button
-        type="button"
-        onClick={onRemove}
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        className="p-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 rounded-lg transition-all duration-300"
-      >
-        <X className="w-4 h-4 text-red-400" />
-      </motion.button>
-    </motion.div>
-  );
-
-  // Configuration Section Component
-  const ConfigurationSection = ({ title, icon, sectionKey, fields }) => (
-    <FormSection title={title} icon={icon}>
-      <div className="space-y-4">
-        {fields.map((field, index) => (
-          <DynamicField
-            key={index}
-            fieldData={field}
-            onUpdateFieldName={(value) => updateField(sectionKey, index, 'fieldName', value)}
-            onRemove={() => removeField(sectionKey, index)}
-          />
-        ))}
-        
-        <motion.button
-          type="button"
-          onClick={() => addField(sectionKey)}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className="w-full flex items-center justify-center space-x-2 p-4 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/30 rounded-xl transition-all duration-300 text-blue-300 hover:text-blue-200"
-        >
-          <Plus className="w-5 h-5" />
-          <span className="font-medium">Add Field</span>
-        </motion.button>
-      </div>
-    </FormSection>
-  );
+  ), []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative overflow-hidden">
@@ -328,37 +384,19 @@ const ClientRegistration = ({ onNavigateToDashboard }) => {
               />
             </FormSection>
 
-            {/* Invoice 1 Configuration */}
-            <ConfigurationSection
-              title="Invoice 1 Configuration"
-              icon={FileText}
-              sectionKey="invoice1Fields"
-              fields={formData.invoice1Fields}
-            />
-
-            {/* Invoice 2 Configuration */}
-            <ConfigurationSection
-              title="Invoice 2 Configuration"
-              icon={Receipt}
-              sectionKey="invoice2Fields"
-              fields={formData.invoice2Fields}
-            />
-
-            {/* POD Configuration */}
-            <ConfigurationSection
-              title="POD Configuration"
-              icon={Package}
-              sectionKey="podFields"
-              fields={formData.podFields}
-            />
-
-            {/* Bill Configuration */}
-            <ConfigurationSection
-              title="Bill Configuration"
-              icon={Receipt}
-              sectionKey="billFields"
-              fields={formData.billFields}
-            />
+            {/* Configuration Sections */}
+            {Object.values(memoizedSections).map((section) => (
+              <ConfigurationSection
+                key={section.sectionKey}
+                title={section.title}
+                icon={section.icon}
+                sectionKey={section.sectionKey}
+                fields={section.fields}
+                onUpdateField={updateField}
+                onRemoveField={removeField}
+                onAddField={addField}
+              />
+            ))}
 
             {/* Submit Button */}
             <motion.div
@@ -369,34 +407,83 @@ const ClientRegistration = ({ onNavigateToDashboard }) => {
               <motion.button
                 type="submit"
                 disabled={isSubmitting || submitSuccess}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className={`flex items-center space-x-3 px-8 py-4 rounded-2xl text-white font-semibold transition-all duration-300 ${
+                whileHover={{ 
+                  scale: 1.05,
+                  boxShadow: "0 25px 50px -12px rgba(59, 130, 246, 0.5)",
+                  y: -2
+                }}
+                whileTap={{ 
+                  scale: 0.98,
+                  boxShadow: "0 10px 25px -5px rgba(59, 130, 246, 0.3)"
+                }}
+                transition={{ 
+                  type: "spring", 
+                  stiffness: 400, 
+                  damping: 17 
+                }}
+                className={`relative overflow-hidden flex items-center space-x-3 px-10 py-5 rounded-2xl text-white font-bold text-lg transition-all duration-500 group ${
                   isSubmitting || submitSuccess
                     ? 'bg-gray-500/50 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 shadow-lg hover:shadow-xl'
+                    : 'bg-gradient-to-r from-blue-600 via-blue-700 to-purple-600 hover:from-blue-500 hover:via-blue-600 hover:to-purple-500 shadow-2xl border border-blue-400/30 backdrop-blur-xl'
                 }`}
               >
-                {isSubmitting ? (
-                  <>
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                      className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"
-                    />
-                    <span>Registering Client...</span>
-                  </>
-                ) : submitSuccess ? (
-                  <>
-                    <CheckCircle className="w-5 h-5" />
-                    <span>Client Registered!</span>
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-5 h-5" />
-                    <span>Register Client</span>
-                  </>
-                )}
+                {/* Animated background shine effect */}
+                <div className={`absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 transform -translate-x-full transition-transform duration-1000 ${
+                  !isSubmitting && !submitSuccess ? 'group-hover:translate-x-full' : ''
+                }`} />
+                
+                {/* Glowing border effect */}
+                <div className={`absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-400/50 via-purple-400/50 to-blue-400/50 opacity-0 transition-opacity duration-500 blur-sm ${
+                  !isSubmitting && !submitSuccess ? 'group-hover:opacity-100' : ''
+                }`} />
+                
+                {/* Button content */}
+                <div className="relative z-10 flex items-center space-x-3">
+                  {isSubmitting ? (
+                    <>
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full"
+                      />
+                      <span>Registering Client...</span>
+                    </>
+                  ) : submitSuccess ? (
+                    <>
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", stiffness: 500, damping: 15 }}
+                      >
+                        <CheckCircle className="w-6 h-6" />
+                      </motion.div>
+                      <span>Client Registered!</span>
+                    </>
+                  ) : (
+                    <>
+                      <motion.div
+                        whileHover={{ rotate: 5 }}
+                        transition={{ type: "spring", stiffness: 300 }}
+                      >
+                        <Save className="w-6 h-6" />
+                      </motion.div>
+                      <span className="tracking-wide">Register Client</span>
+                      {/* Subtle pulse indicator */}
+                      <motion.div
+                        animate={{ 
+                          scale: [1, 1.2, 1],
+                          opacity: [0.7, 1, 0.7]
+                        }}
+                        transition={{ 
+                          duration: 2, 
+                          repeat: Infinity,
+                          ease: "easeInOut"
+                        }}
+                        className="w-2 h-2 bg-white rounded-full ml-2"
+                      />
+                    </>
+                  )}
+                </div>
               </motion.button>
             </motion.div>
           </form>
