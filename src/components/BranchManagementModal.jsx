@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 
 import { clientRegistrationService } from '../lib/clientRegistrationService';
+import BranchTemplateFieldsModal from './BranchTemplateFieldsModal';
 
 // Shared InputField component to prevent re-creation
 const InputField = ({ label, value, onChange, placeholder, icon: Icon }) => (
@@ -36,16 +37,23 @@ const InputField = ({ label, value, onChange, placeholder, icon: Icon }) => (
 );
 
 // Branch Item Component
-const BranchItem = React.memo(({ branch, onUpdate, onRemove, canRemove = true }) => {
+const BranchItem = React.memo(({ branch, onUpdate, onRemove, canRemove = true, onOpenTemplates }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
     branchName: branch.branch_name || '',
     branchAddress: branch.branch_address || '',
     branchGstin: branch.branch_gstin || ''
   });
+  // For new branches, allow entering template fields inline
+  const [newTemplateFields, setNewTemplateFields] = useState([
+    { fieldName: '', podRequirement: 'NOT_APPLICABLE' }
+  ]);
 
   const handleSave = () => {
-    onUpdate(branch.branch_id, editData);
+    const payload = branch?.isNew
+      ? { ...editData, templateFields: newTemplateFields }
+      : editData;
+    onUpdate(branch.branch_id, payload);
     setIsEditing(false);
   };
 
@@ -73,6 +81,14 @@ const BranchItem = React.memo(({ branch, onUpdate, onRemove, canRemove = true })
         <div className="flex space-x-2">
           {!isEditing ? (
             <>
+              <motion.button
+                onClick={() => onOpenTemplates && onOpenTemplates(branch)}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-3 py-1 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 rounded-lg transition-all duration-300 text-sm"
+              >
+                Template Fields
+              </motion.button>
               <motion.button
                 onClick={() => setIsEditing(true)}
                 whileHover={{ scale: 1.05 }}
@@ -141,6 +157,48 @@ const BranchItem = React.memo(({ branch, onUpdate, onRemove, canRemove = true })
               icon={MapPin}
             />
           </div>
+          {branch?.isNew && (
+            <div className="md:col-span-2 mt-2">
+              <div className="text-white/80 font-semibold mb-2">Branch-Specific Template Fields</div>
+              <div className="space-y-2">
+                {newTemplateFields.map((f, i) => (
+                  <div key={i} className="flex items-center space-x-3">
+                    <input
+                      type="text"
+                      value={f.fieldName}
+                      onChange={(e) => setNewTemplateFields(prev => prev.map((x, idx) => idx === i ? { ...x, fieldName: e.target.value } : x))}
+                      placeholder="Field Name"
+                      className="flex-1 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                    />
+                    <select
+                      value={f.podRequirement}
+                      onChange={(e) => setNewTemplateFields(prev => prev.map((x, idx) => idx === i ? { ...x, podRequirement: e.target.value } : x))}
+                      className="px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                    >
+                      <option className="bg-slate-800" value="NOT_APPLICABLE">Not applicable for POD</option>
+                      <option className="bg-slate-800" value="MANDATORY">Mandatory for POD</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setNewTemplateFields(prev => prev.filter((_, idx) => idx !== i))}
+                      className="px-3 py-2 bg-red-500/20 border border-red-400/30 rounded-lg text-red-300"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setNewTemplateFields(prev => [...prev, { fieldName: '', podRequirement: 'NOT_APPLICABLE' }])}
+                  className="flex items-center space-x-2 px-3 py-2 bg-blue-600/80 hover:bg-blue-500/80 text-white rounded-lg border border-blue-400/30"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Field</span>
+                </button>
+                <div className="text-xs text-white/50">These fields will be created for this branch after you save.</div>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-2 text-white/70">
@@ -168,6 +226,7 @@ const BranchManagementModal = ({ client, onClose, onSuccess }) => {
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [openBranchForTemplates, setOpenBranchForTemplates] = useState(null);
 
   // Load existing branches
   useEffect(() => {
@@ -214,6 +273,22 @@ const BranchManagementModal = ({ client, onClose, onSuccess }) => {
               : b
           ));
           setSuccessMessage('Branch created successfully!');
+          // If any inline template fields were provided for the new branch, create them now
+          const tf = (branchData.templateFields || [])
+            .filter(f => (f.fieldName || '').trim())
+            .map((f, i) => ({
+              clientId: client.client_id,
+              branchId: result.data.branch_id,
+              fieldName: f.fieldName,
+              fieldKey: f.fieldName.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+              displayOrder: i,
+              podRequirement: f.podRequirement || 'NOT_APPLICABLE'
+            }));
+          if (tf.length > 0) {
+            await clientRegistrationService.createTemplateFields(tf);
+          }
+          // Optionally open modal for further edits
+          setOpenBranchForTemplates(result.data);
           setTimeout(() => onSuccess(), 1500);
         } else {
           setErrorMessage(result.error);
@@ -386,12 +461,20 @@ const BranchManagementModal = ({ client, onClose, onSuccess }) => {
                     onUpdate={updateBranch}
                     onRemove={removeBranch}
                     canRemove={branches.length > 1}
+                    onOpenTemplates={(b) => setOpenBranchForTemplates(b)}
                   />
                 ))}
               </div>
             )}
           </div>
         </div>
+        {openBranchForTemplates && (
+          <BranchTemplateFieldsModal
+            client={client}
+            branch={openBranchForTemplates}
+            onClose={() => setOpenBranchForTemplates(null)}
+          />
+        )}
       </motion.div>
     </motion.div>
   );

@@ -33,6 +33,10 @@ const ClientManagement = ({ onNavigateToDashboard, onNavigateToSearch, onNavigat
   const [showBranchModal, setShowBranchModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [openMenuClientId, setOpenMenuClientId] = useState(null);
+  const [confirmDeleteClient, setConfirmDeleteClient] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   // Load clients on component mount and when refresh is triggered
   useEffect(() => {
@@ -78,6 +82,22 @@ const ClientManagement = ({ onNavigateToDashboard, onNavigateToSearch, onNavigat
     setShowBranchModal(false);
     setSelectedClient(null);
     setRefreshTrigger(prev => prev + 1); // Trigger refresh
+  };
+
+  const handleDeleteClient = async () => {
+    if (!confirmDeleteClient) return;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      const res = await clientRegistrationService.deleteClient(confirmDeleteClient.client_id);
+      if (!res.success) throw new Error(res.error);
+      setConfirmDeleteClient(null);
+      setRefreshTrigger(prev => prev + 1);
+    } catch (e) {
+      setDeleteError(e.message || 'Failed to delete client');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   // Filter clients based on search
@@ -269,13 +289,45 @@ const ClientManagement = ({ onNavigateToDashboard, onNavigateToSearch, onNavigat
                             </p>
                           </div>
                         </div>
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          className="p-2 text-white/50 hover:text-white bg-white/5 rounded-lg transition-all duration-300"
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </motion.button>
+                        <div className="relative">
+                          <motion.button
+                            onClick={() => setOpenMenuClientId(prev => prev === client.client_id ? null : client.client_id)}
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            className="p-2 text-white/50 hover:text-white bg-white/5 rounded-lg transition-all duration-300"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </motion.button>
+                          {openMenuClientId === client.client_id && (
+                            <div className="absolute right-0 mt-2 w-44 bg-slate-900 border border-white/10 rounded-lg shadow-xl z-10">
+                              <button
+                                onClick={() => { setOpenMenuClientId(null); handleManageBranches(client); }}
+                                className="w-full text-left px-3 py-2 text-sm text-white/90 hover:bg-white/10 rounded-t-lg"
+                              >
+                                Manage Branches
+                              </button>
+                              <button
+                                onClick={() => { setOpenMenuClientId(null); handleSetupTemplate(client); }}
+                                className="w-full text-left px-3 py-2 text-sm text-white/90 hover:bg-white/10"
+                              >
+                                Setup Template
+                              </button>
+                              <button
+                                onClick={() => { setOpenMenuClientId(null); setConfirmDeleteClient(client); }}
+                                className="w-full text-left px-3 py-2 text-sm text-red-300 hover:bg-red-500/10"
+                              >
+                                Delete Client
+                              </button>
+                              <button
+                                onClick={() => { setOpenMenuClientId(null); }}
+                                className="w-full text-left px-3 py-2 text-sm text-white/60 hover:bg-white/10 rounded-b-lg"
+                                disabled
+                              >
+                                View (coming soon)
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       {/* Client Details */}
@@ -356,6 +408,50 @@ const ClientManagement = ({ onNavigateToDashboard, onNavigateToSearch, onNavigat
             }}
             onSuccess={handleBranchManaged}
           />
+        )}
+
+        {confirmDeleteClient && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+            onClick={() => !deleting && setConfirmDeleteClient(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-slate-900/95 backdrop-blur-xl border border-white/20 rounded-2xl w-full max-w-lg"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6 space-y-4">
+                <h3 className="text-xl font-bold text-white">Delete Client?</h3>
+                <p className="text-white/70 text-sm">
+                  This will permanently delete "{confirmDeleteClient.client_name}" and all related branches, templates, and future-linked data via database cascade. This action cannot be undone.
+                </p>
+                {deleteError && (
+                  <div className="text-red-300 text-sm">{deleteError}</div>
+                )}
+                <div className="flex justify-end space-x-3 pt-2">
+                  <button
+                    onClick={() => setConfirmDeleteClient(null)}
+                    disabled={deleting}
+                    className="px-4 py-2 rounded-xl bg-white/10 text-white hover:bg-white/20 border border-white/20"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDeleteClient}
+                    disabled={deleting}
+                    className={`px-4 py-2 rounded-xl ${deleting ? 'bg-red-500/40 cursor-not-allowed' : 'bg-red-600 hover:bg-red-500'} text-white border border-red-400/40`}
+                  >
+                    {deleting ? 'Deleting…' : 'Delete'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

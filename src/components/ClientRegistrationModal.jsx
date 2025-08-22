@@ -166,6 +166,27 @@ const ClientRegistrationModal = ({ onClose, onSuccess }) => {
   const [errorMessage, setErrorMessage] = useState('');
   const [activeTab, setActiveTab] = useState('client'); // 'client', 'branches', 'templates'
 
+  // Derived validation state
+  const hasValidClient = formData.clientName.trim().length > 0;
+  const hasAtLeastOneBranch = formData.branches.some(b => (b.branchName || '').trim().length > 0);
+  const hasAtLeastOneTemplateField = (
+    (formData.baseTemplateFields || []).some(f => (f.fieldName || '').trim().length > 0) ||
+    Object.values(formData.branchTemplateFields || {}).some(arr => (arr || []).some(f => (f.fieldName || '').trim().length > 0))
+  );
+
+  // very light duplicate key check (based on normalized key)
+  const normalizeKey = (name) => (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  const baseKeys = new Set((formData.baseTemplateFields || [])
+    .filter(f => (f.fieldName || '').trim())
+    .map(f => normalizeKey(f.fieldName)));
+  const hasDuplicateBaseKeys = baseKeys.size !== (formData.baseTemplateFields || []).filter(f => (f.fieldName || '').trim()).length;
+  const hasDuplicateBranchKeys = Object.values(formData.branchTemplateFields || {}).some(arr => {
+    const names = (arr || []).filter(f => (f.fieldName || '').trim()).map(f => normalizeKey(f.fieldName));
+    return new Set(names).size !== names.length;
+  });
+
+  const isFormValid = hasValidClient && hasAtLeastOneBranch && hasAtLeastOneTemplateField && !hasDuplicateBaseKeys && !hasDuplicateBranchKeys;
+
   const handleInputChange = useCallback((field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -288,6 +309,25 @@ const ClientRegistrationModal = ({ onClose, onSuccess }) => {
     setErrorMessage('');
 
     try {
+      // Guard rails: require at least one branch and one template field
+      if (!hasAtLeastOneBranch) {
+        setIsSubmitting(false);
+        setActiveTab('branches');
+        setErrorMessage('Please add at least one branch before registering the client.');
+        return;
+      }
+      if (!hasAtLeastOneTemplateField) {
+        setIsSubmitting(false);
+        setActiveTab('templates');
+        setErrorMessage('Please add at least one template field (base or branch-specific).');
+        return;
+      }
+      if (hasDuplicateBaseKeys || hasDuplicateBranchKeys) {
+        setIsSubmitting(false);
+        setActiveTab('templates');
+        setErrorMessage('Duplicate field keys detected. Please ensure field names are unique within base and within each branch.');
+        return;
+      }
       // Prepare client data
       const clientData = {
         clientName: formData.clientName,
@@ -314,7 +354,7 @@ const ClientRegistrationModal = ({ onClose, onSuccess }) => {
           podRequirement: field.podRequirement
         }));
 
-      // For now, use the old registration format for compatibility
+  // For now, use the old registration format for compatibility
       const registrationData = {
         client: clientData,
         branches: branchesData.length > 0 ? branchesData : null,
@@ -454,8 +494,18 @@ const ClientRegistrationModal = ({ onClose, onSuccess }) => {
                   }`}
                 >
                   {tab === 'client' && 'Client Info'}
-                  {tab === 'branches' && 'Branches'}
-                  {tab === 'templates' && 'Template Fields'}
+                  {tab === 'branches' && (
+                    <span className="inline-flex items-center space-x-2">
+                      <span>Branches</span>
+                      {!hasAtLeastOneBranch && <span className="w-2 h-2 rounded-full bg-red-400" />}
+                    </span>
+                  )}
+                  {tab === 'templates' && (
+                    <span className="inline-flex items-center space-x-2">
+                      <span>Template Fields</span>
+                      {!hasAtLeastOneTemplateField && <span className="w-2 h-2 rounded-full bg-red-400" />}
+                    </span>
+                  )}
                 </motion.button>
               ))}
             </div>
@@ -615,10 +665,18 @@ const ClientRegistrationModal = ({ onClose, onSuccess }) => {
             </div>
 
             {/* Submit Button */}
-            <div className="flex justify-end pt-6 border-t border-white/10">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-6 border-t border-white/10">
+              {/* Inline validation summary */}
+              {!isFormValid && (
+                <div className="text-sm text-red-300">
+                  {!hasAtLeastOneBranch && <div>• Add at least one branch.</div>}
+                  {!hasAtLeastOneTemplateField && <div>• Add at least one template field.</div>}
+                  {(hasDuplicateBaseKeys || hasDuplicateBranchKeys) && <div>• Duplicate field names detected.</div>}
+                </div>
+              )}
               <motion.button
                 type="submit"
-                disabled={isSubmitting || submitSuccess}
+                disabled={isSubmitting || submitSuccess || !isFormValid}
                 whileHover={{ 
                   scale: isSubmitting || submitSuccess ? 1 : 1.05,
                 }}
@@ -626,7 +684,7 @@ const ClientRegistrationModal = ({ onClose, onSuccess }) => {
                   scale: isSubmitting || submitSuccess ? 1 : 0.98,
                 }}
                 className={`flex items-center space-x-3 px-8 py-4 rounded-2xl text-white font-bold text-lg transition-all duration-500 ${
-                  isSubmitting || submitSuccess
+                  isSubmitting || submitSuccess || !isFormValid
                     ? 'bg-gray-500/50 cursor-not-allowed'
                     : 'bg-gradient-to-r from-blue-600 via-blue-700 to-purple-600 hover:from-blue-500 hover:via-blue-600 hover:to-purple-500 shadow-2xl border border-blue-400/30 backdrop-blur-xl'
                 }`}

@@ -23,6 +23,22 @@ export const clientRegistrationService = {
     }
   },
 
+  // Delete a client (cascades to branches, templates, LRs, etc. per DB FKs)
+  async deleteClient(clientId) {
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('client_id', clientId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting client:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
   // Create a client branch
   async createBranch(branchData) {
     try {
@@ -205,6 +221,21 @@ export const clientRegistrationService = {
       return { success: true, data };
     } catch (error) {
       console.error('Error fetching template fields:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Delete a template field by field_id
+  async deleteTemplateField(fieldId) {
+    try {
+      const { error } = await supabase
+        .from('client_field_templates')
+        .delete()
+        .eq('field_id', fieldId);
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting template field:', error);
       return { success: false, error: error.message };
     }
   }

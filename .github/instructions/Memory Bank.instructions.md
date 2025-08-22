@@ -37,6 +37,121 @@
 
 ## Implementation Timeline & Log
 
+### 2025-08-22: Templates → LR Integration Plan (Extraction, Pairing, Validation, Billing)
+
+#### Objective
+Connect client/branch templates to the LR upload flow so a single PDF with multiple Invoice–POD pairs is split, matched, extracted, human-validated, and stored for billing—simple, reliable, and scalable.
+
+#### End-to-End Flow
+1. Gatekeeping
+   - Require active templates for both document types: invoice and pod (prefer branch-specific, fallback to base).
+2. Upload + Trip Record
+   - Upload PDF to `source_documents` and create `lorry_receipts` with `status = 'Pending_Validation'` and `source_pdf_path` (recommended small addition).
+3. Asynchronous Extraction
+   - Trigger OCR/Extraction job with `{ lr_id, client_id, branch_id, source_pdf_path }`.
+   - Service splits pages, classifies (invoice vs pod), extracts invoice_number candidates, pairs invoice–pod pages, and runs template-based extraction (coordinate → anchor → regex).
+   - For each matched pair, insert `invoices` rows with `{ lr_id, invoice_number, invoice_page_ref, pod_page_ref, raw_ocr_data }`.
+   - `raw_ocr_data` keeps per-field `{ invoice_value, pod_value, method, confidence, conflict }`; orphans/low-confidence flagged for review.
+4. Human Validation
+   - UI renders one row per invoice with conflicts highlighted and POD rules enforced (`MANDATORY` vs `NOT_APPLICABLE`).
+   - User resolves conflicts and saves clean values to `invoices.custom_data`.
+   - When all rows meet requirements, set `lorry_receipts.status = 'Validated'`.
+5. Billing
+   - Bulk-billing selects `Validated` trips, generates Excel using `client_field_templates.display_order`, uploads to `generated_bills`, and archives via `generated_bill_files`.
+
+#### Data Contracts
+- Templates
+  - `document_templates`: active template per `(client_id, branch_id|null, document_type in ['invoice','pod'])` with extraction methods.
+  - `client_field_templates`: canonical field keys, display order, and `pod_requirement` for validation and billing.
+- Extraction API (async)
+  - Request: `{ lr_id, client_id, branch_id, source_pdf_path }` → Response: `{ job_id }`.
+  - Service writes directly to `invoices` (upsert by unique `(lr_id, invoice_number)` for idempotency).
+- Stored Results
+  - `invoices.raw_ocr_data`: per-field values, confidence, conflict, and notes; `invoice_page_ref`/`pod_page_ref` store page image refs.
+  - `invoices.custom_data`: final, user-validated values.
+
+#### Matching Strategy (Practical Heuristics)
+1. Classify pages using template anchors/keywords (e.g., “Tax Invoice”, “POD”).
+2. Extract invoice_number candidates per page with confidence.
+3. Pairing order:
+   - Primary: exact invoice_number match (pick highest-confidence when multiples).
+   - Secondary: adjacency heuristic (neighboring pages), then fuzzy match constrained to the LR.
+4. Orphans are flagged `needs_review` for manual pairing in UI.
+
+#### Minimal DB Additions (Recommended)
+- `lorry_receipts.source_pdf_path TEXT` to track the uploaded file path and support reprocessing.
+- Optional: `invoices.is_validated BOOLEAN DEFAULT false` to simplify completeness checks (or infer from `custom_data`).
+
+#### Operational Safeguards
+- Gate LR upload if no active templates; allow base-template fallback.
+- Low confidence or unclassified pages → flagged for human review.
+- Idempotent extraction via `(lr_id, invoice_number)` unique key.
+- Template drift handled via template `version` and `is_active` in `document_templates`.
+
+#### FAQ
+- Do users need to re-annotate after upload?
+  - No. Once templates are created (coordinates/anchors/regex), the extraction service uses them automatically on upload. Users only validate and resolve conflicts. Manual input/pairing is needed only when templates are missing, pages are unmatched, or confidence is low.
+
+#### Status
+- Design approved and documented. Next: add `document_templates` table and (optional) `source_pdf_path`, scaffold extraction service hook, and build validation UI for `invoices` under an LR.
+
+### 2025-08-22: Client Registration Hardening, Client Delete, and Branch Template Flow
+
+#### Problems Addressed
+- Clients could be registered without branches or template fields.
+- The 3-dots action on client cards had no functional menu.
+- No way to delete a client from the UI/service.
+- Adding branches required a separate step to configure branch-specific fields (too many hops).
+
+#### What Was Implemented
+1. Client Registration Guardrails
+   - UI now requires:
+     - Client name (already present)
+     - At least one branch
+     - At least one template field (base or branch-specific)
+   - Duplicate field-name detection (normalized to keys) for base and per-branch fields.
+   - Tab-level red indicators for incomplete sections; inline validation summary; submit disabled until valid.
+   - Files: `src/components/ClientRegistrationModal.jsx`
+
+2. Client Actions Menu
+   - Working 3-dots dropdown on client cards with actions:
+     - Manage Branches
+     - Setup Template
+     - Delete Client (new)
+   - Files: `src/pages/ClientManagement.jsx`
+
+3. Delete Client (Hard Delete)
+   - Service method `deleteClient(clientId)`; DB cascades handle branches/templates/etc.
+   - Confirmation modal with cascade warning, progress and error states.
+   - Files: `src/lib/clientRegistrationService.js`, `src/pages/ClientManagement.jsx`
+
+4. Branch Template Fields—Inline and Modal
+   - Inline fields during Add Branch: when creating a new branch, you can add its branch-specific template fields in the same edit panel; fields are created immediately after the branch is saved.
+   - Auto-open Branch Template Fields modal after creation for further edits.
+   - Added a “Template Fields” button on each branch row to open the modal at any time.
+   - Files: `src/components/BranchManagementModal.jsx`, `src/components/BranchTemplateFieldsModal.jsx`, `src/lib/clientRegistrationService.js`
+
+5. Template Setup Quick Add (Base Fields)
+   - Temporary base-fields editor inside `TemplateSetupModal` to add client-wide fields without the annotation tool.
+   - Files: `src/components/TemplateSetupModal.jsx`
+
+#### UX/Behavioral Notes
+- POD requirement meanings:
+  - NOT_APPLICABLE: field isn’t required on POD; can be captured from LR/Invoice.
+  - MANDATORY: must be present/verified on POD; should block validation if missing.
+- Validation surfaces clearly on tabs and above the submit button.
+
+#### Business Value
+- Prevents empty/invalid registrations and data integrity issues.
+- Faster onboarding: branches can be created with their fields in one step.
+- Admin hygiene: clients can be removed safely with clear warning.
+
+#### Next Steps
+1. Optional soft-delete for clients (`is_deleted`) and filtered queries.
+2. Edit/update for existing template fields (service + UI).
+3. Branch templates preview: show effective (base + branch) fields in one view.
+4. Tie POD requirement into future validation UI to enforce status transitions.
+
 ### **2025-08-22: White Page Issue Resolution & System Stabilization**
 
 #### **Problem Identified:**

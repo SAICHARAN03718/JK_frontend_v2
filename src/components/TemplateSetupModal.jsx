@@ -7,12 +7,55 @@ import {
   Eye,
   Settings,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Plus
 } from 'lucide-react';
+import { clientRegistrationService } from '../lib/clientRegistrationService';
 
 const TemplateSetupModal = ({ client, onClose }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [uploadedFile, setUploadedFile] = useState(null);
+  const [manualFields, setManualFields] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const addManualField = () => {
+    setManualFields(prev => ([...prev, { fieldName: '', podRequirement: 'NOT_APPLICABLE' }]));
+  };
+  const updateManualField = (index, patch) => {
+    setManualFields(prev => prev.map((f, i) => i === index ? { ...f, ...patch } : f));
+  };
+  const removeManualField = (index) => {
+    setManualFields(prev => prev.filter((_, i) => i !== index));
+  };
+  const saveManualFields = async () => {
+    setSaving(true);
+    setMessage('');
+    try {
+      const fields = manualFields
+        .filter(f => (f.fieldName || '').trim())
+        .map((f, i) => ({
+          clientId: client.client_id,
+          fieldName: f.fieldName,
+          fieldKey: f.fieldName.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+          displayOrder: i,
+          podRequirement: f.podRequirement
+        }));
+      if (fields.length === 0) {
+        setMessage('Add at least one field to save.');
+        setSaving(false);
+        return;
+      }
+      const res = await clientRegistrationService.createTemplateFields(fields);
+      if (!res.success) throw new Error(res.error);
+      setMessage('Fields saved. You can refine later via annotation tool.');
+      setManualFields([]);
+    } catch (e) {
+      setMessage(e.message || 'Failed to save fields.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const steps = [
     { id: 1, title: 'Upload Document', icon: Upload },
@@ -122,6 +165,61 @@ const TemplateSetupModal = ({ client, onClose }) => {
                 For now, template fields have been saved and can be manually configured later.
               </p>
             </div>
+          </motion.div>
+
+          {/* Manual Fields (stopgap until annotation tool) */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-6 bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-lg font-bold text-white">Quick Add Base Fields</h4>
+              <motion.button
+                onClick={addManualField}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center space-x-2 bg-blue-600/80 hover:bg-blue-500/80 text-white px-3 py-2 rounded-xl border border-blue-400/30"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Field</span>
+              </motion.button>
+            </div>
+            <div className="space-y-3">
+              {manualFields.map((f, i) => (
+                <div key={i} className="flex items-center space-x-3">
+                  <input
+                    type="text"
+                    value={f.fieldName}
+                    onChange={(e) => updateManualField(i, { fieldName: e.target.value })}
+                    placeholder="Field Name"
+                    className="flex-1 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                  />
+                  <select
+                    value={f.podRequirement}
+                    onChange={(e) => updateManualField(i, { podRequirement: e.target.value })}
+                    className="px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                  >
+                    <option className="bg-slate-800" value="NOT_APPLICABLE">Not for POD</option>
+                    <option className="bg-slate-800" value="MANDATORY">Mandatory for POD</option>
+                  </select>
+                  <button onClick={() => removeManualField(i)} className="px-3 py-2 bg-red-500/20 border border-red-400/30 rounded-lg text-red-300">Remove</button>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between mt-4">
+              <div className="text-sm text-white/70">Adds base fields for all branches.</div>
+              <motion.button
+                onClick={saveManualFields}
+                disabled={saving || manualFields.every(f => !f.fieldName.trim())}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className={`px-4 py-2 rounded-xl text-white ${saving || manualFields.every(f => !f.fieldName.trim()) ? 'bg-gray-500/50 cursor-not-allowed' : 'bg-green-600/80 hover:bg-green-500/80 border border-green-400/30'}`}
+              >
+                {saving ? 'Saving...' : 'Save Fields'}
+              </motion.button>
+            </div>
+            {message && <div className="mt-3 text-sm text-white/80">{message}</div>}
           </motion.div>
 
           {/* Client Info Summary */}
