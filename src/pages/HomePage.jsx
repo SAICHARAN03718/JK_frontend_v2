@@ -25,6 +25,17 @@ const HomePage = ({ onNavigateToLanding, onNavigateToDashboard }) => {
         onNavigateToDashboard={onNavigateToDashboard}
       />
 
+      {/* Quick bypass to dashboard */}
+      <motion.button
+        onClick={onNavigateToDashboard}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.97 }}
+        className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-amber-600 text-white shadow-lg hover:bg-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-400"
+        aria-label="Bypass and go to Dashboard"
+      >
+        Bypass → Dashboard
+      </motion.button>
+
       {/* Hero Content */}
       <div className="relative z-10 min-h-screen flex items-center justify-center px-6 lg:px-8 pt-20">
         <div className="max-w-6xl mx-auto text-center">

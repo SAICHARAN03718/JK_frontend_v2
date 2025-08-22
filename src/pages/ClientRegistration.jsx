@@ -8,8 +8,8 @@ import {
   Phone, 
   Mail, 
   FileText, 
-  Package,
-  Receipt,
+  Building2,
+  MapPin,
   CheckCircle,
   AlertCircle,
   Save,
@@ -17,38 +17,73 @@ import {
   X
 } from 'lucide-react';
 
-// Dynamic Field Component (moved outside to prevent re-creation)
-const DynamicField = ({ fieldData, onUpdateFieldName, onRemove, fieldIndex, sectionKey }) => {
-  const handleChange = useCallback((e) => {
-    onUpdateFieldName(e.target.value);
-  }, [onUpdateFieldName]);
+import Sidebar from '../components/Sidebar';
+import { clientRegistrationService } from '../lib/clientRegistrationService';
+
+// Template Field Component (moved outside to prevent re-creation)
+const TemplateField = ({ fieldData, onUpdateField, onRemove, fieldIndex }) => {
+  const handleFieldNameChange = useCallback((e) => {
+    onUpdateField(fieldIndex, 'fieldName', e.target.value);
+  }, [onUpdateField, fieldIndex]);
+
+  const handlePodRequirementChange = useCallback((e) => {
+    onUpdateField(fieldIndex, 'podRequirement', e.target.value);
+  }, [onUpdateField, fieldIndex]);
+
+  const handleBranchSpecificChange = useCallback((e) => {
+    onUpdateField(fieldIndex, 'branchSpecific', e.target.checked);
+  }, [onUpdateField, fieldIndex]);
 
   return (
     <motion.div
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 20 }}
-      className="flex items-center space-x-3 p-4 bg-white/5 rounded-xl border border-white/10"
+      className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-3"
     >
-      <div className="flex-1">
-        <input
-          type="text"
-          value={fieldData.fieldName || ''}
-          onChange={handleChange}
-          placeholder="Field Name (e.g., GST Number, Consignee Name, Payment Terms)"
-          className="w-full px-4 py-2 bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400/50 transition-all duration-300"
-          autoComplete="off"
-        />
+      <div className="flex items-center space-x-3">
+        <div className="flex-1">
+          <input
+            type="text"
+            value={fieldData.fieldName || ''}
+            onChange={handleFieldNameChange}
+            placeholder="Field Name (e.g., Vehicle Number, Invoice Date, GST Number)"
+            className="w-full px-4 py-2 bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400/50 transition-all duration-300"
+            autoComplete="off"
+          />
+        </div>
+        <motion.button
+          type="button"
+          onClick={() => onRemove(fieldIndex)}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          className="p-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 rounded-lg transition-all duration-300"
+        >
+          <X className="w-4 h-4 text-red-400" />
+        </motion.button>
       </div>
-      <motion.button
-        type="button"
-        onClick={onRemove}
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        className="p-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 rounded-lg transition-all duration-300"
-      >
-        <X className="w-4 h-4 text-red-400" />
-      </motion.button>
+      
+      <div className="flex items-center space-x-4">
+        <div className="flex-1">
+          <select
+            value={fieldData.podRequirement || 'NOT_APPLICABLE'}
+            onChange={handlePodRequirementChange}
+            className="w-full px-3 py-2 bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400/50 transition-all duration-300"
+          >
+            <option value="NOT_APPLICABLE" className="bg-slate-800">Not Applicable for POD</option>
+            <option value="MANDATORY" className="bg-slate-800">Mandatory for POD</option>
+          </select>
+        </div>
+        <label className="flex items-center space-x-2 text-white/70">
+          <input
+            type="checkbox"
+            checked={fieldData.branchSpecific || false}
+            onChange={handleBranchSpecificChange}
+            className="rounded text-blue-500 focus:ring-blue-500 focus:ring-opacity-50"
+          />
+          <span className="text-sm">Branch Specific</span>
+        </label>
+      </div>
     </motion.div>
   );
 };
@@ -71,42 +106,36 @@ const FormSection = ({ title, icon: Icon, children }) => (
 );
 
 // Configuration Section Component (moved outside)
-const ConfigurationSection = ({ title, icon, sectionKey, fields, onUpdateField, onRemoveField, onAddField }) => {
+const TemplateFieldsSection = ({ title, icon, fields, onUpdateField, onRemoveField, onAddField }) => {
   return (
     <FormSection title={title} icon={icon}>
       <div className="space-y-4">
-        {fields.map((field, index) => {
-          const updateFieldName = (value) => onUpdateField(sectionKey, index, 'fieldName', value);
-          const removeField = () => onRemoveField(sectionKey, index);
-          
-          return (
-            <DynamicField
-              key={`${sectionKey}-${field.id || index}`}
-              fieldData={field}
-              onUpdateFieldName={updateFieldName}
-              onRemove={removeField}
-              fieldIndex={index}
-              sectionKey={sectionKey}
-            />
-          );
-        })}
+        {fields.map((field, index) => (
+          <TemplateField
+            key={`template-field-${field.id || index}`}
+            fieldData={field}
+            onUpdateField={onUpdateField}
+            onRemove={onRemoveField}
+            fieldIndex={index}
+          />
+        ))}
         
         <motion.button
           type="button"
-          onClick={() => onAddField(sectionKey)}
+          onClick={onAddField}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           className="w-full flex items-center justify-center space-x-2 p-4 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/30 rounded-xl transition-all duration-300 text-blue-300 hover:text-blue-200"
         >
           <Plus className="w-5 h-5" />
-          <span className="font-medium">Add Field</span>
+          <span className="font-medium">Add Template Field</span>
         </motion.button>
       </div>
     </FormSection>
   );
 };
 
-const ClientRegistration = ({ onNavigateToDashboard }) => {
+const ClientRegistration = ({ onNavigateToDashboard, onNavigateToSearch, onNavigateToBulkBilling }) => {
   // Use a ref to generate truly unique IDs
   const idCounter = React.useRef(0);
   const generateId = useCallback(() => {
@@ -115,17 +144,23 @@ const ClientRegistration = ({ onNavigateToDashboard }) => {
   }, []);
 
   const [formData, setFormData] = useState({
+    // Client basic info
     clientName: '',
-    whatsappNo: '',
-    email: '',
-    invoice1Fields: [],
-    invoice2Fields: [],
-    podFields: [],
-    billFields: []
+    address: '',
+    gstin: '',
+    
+    // Default branch info
+    branchName: '',
+    branchAddress: '',
+    branchGstin: '',
+    
+    // Template fields
+    templateFields: []
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const handleInputChange = useCallback((field, value, section = null) => {
     if (section) {
@@ -144,31 +179,33 @@ const ClientRegistration = ({ onNavigateToDashboard }) => {
     }
   }, []);
 
-  // Add new field to a configuration section
-  const addField = useCallback((section) => {
+  // Add new template field
+  const addTemplateField = useCallback(() => {
     const newField = {
       id: generateId(),
-      fieldName: ''
+      fieldName: '',
+      podRequirement: 'NOT_APPLICABLE',
+      branchSpecific: false
     };
     setFormData(prev => ({
       ...prev,
-      [section]: [...prev[section], newField]
+      templateFields: [...prev.templateFields, newField]
     }));
   }, [generateId]);
 
-  // Remove field from a configuration section
-  const removeField = useCallback((section, index) => {
+  // Remove template field
+  const removeTemplateField = useCallback((index) => {
     setFormData(prev => ({
       ...prev,
-      [section]: prev[section].filter((_, i) => i !== index)
+      templateFields: prev.templateFields.filter((_, i) => i !== index)
     }));
   }, []);
 
-  // Update field in a configuration section
-  const updateField = useCallback((section, index, field, value) => {
+  // Update template field
+  const updateTemplateField = useCallback((index, field, value) => {
     setFormData(prev => ({
       ...prev,
-      [section]: prev[section].map((item, i) => 
+      templateFields: prev.templateFields.map((item, i) => 
         i === index ? { ...item, [field]: value } : item
       )
     }));
@@ -177,59 +214,53 @@ const ClientRegistration = ({ onNavigateToDashboard }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setErrorMessage('');
 
-    // Simulate API call
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setSubmitSuccess(true);
+      const registrationData = {
+        client: {
+          clientName: formData.clientName,
+          address: formData.address,
+          gstin: formData.gstin
+        },
+        branch: formData.branchName ? {
+          branchName: formData.branchName,
+          branchAddress: formData.branchAddress,
+          branchGstin: formData.branchGstin
+        } : null,
+        templateFields: formData.templateFields.filter(field => field.fieldName.trim())
+      };
+
+      const result = await clientRegistrationService.registerClient(registrationData);
       
-      // Reset form after success
-      setTimeout(() => {
-        setSubmitSuccess(false);
-        setFormData({
-          clientName: '',
-          whatsappNo: '',
-          email: '',
-          invoice1Fields: [],
-          invoice2Fields: [],
-          podFields: [],
-          billFields: []
-        });
-      }, 3000);
+      if (result.success) {
+        setSubmitSuccess(true);
+        
+        // Reset form after success
+        setTimeout(() => {
+          setSubmitSuccess(false);
+          setFormData({
+            clientName: '',
+            address: '',
+            gstin: '',
+            branchName: '',
+            branchAddress: '',
+            branchGstin: '',
+            templateFields: []
+          });
+        }, 3000);
+      } else {
+        setErrorMessage(result.error);
+      }
     } catch (error) {
       console.error('Registration failed:', error);
+      setErrorMessage('Registration failed. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Memoized configuration sections to prevent re-renders
-  const memoizedSections = useMemo(() => ({
-    invoice1: {
-      title: "Invoice 1 Configuration",
-      icon: FileText,
-      sectionKey: "invoice1Fields",
-      fields: formData.invoice1Fields
-    },
-    invoice2: {
-      title: "Invoice 2 Configuration", 
-      icon: Receipt,
-      sectionKey: "invoice2Fields",
-      fields: formData.invoice2Fields
-    },
-    pod: {
-      title: "POD Configuration",
-      icon: Package,
-      sectionKey: "podFields", 
-      fields: formData.podFields
-    },
-    bill: {
-      title: "Bill Configuration",
-      icon: Receipt,
-      sectionKey: "billFields",
-      fields: formData.billFields
-    }
-  }), [formData.invoice1Fields, formData.invoice2Fields, formData.podFields, formData.billFields]);
+  // Memoized sections removed - not needed anymore
 
   const InputField = useCallback(({ 
     label, 
@@ -273,8 +304,8 @@ const ClientRegistration = ({ onNavigateToDashboard }) => {
 
       {/* Header */}
       <motion.header
-        initial={{ y: -60, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
+        initial={false}
+        animate={false}
         className="fixed top-0 left-0 right-0 z-50 bg-white/5 backdrop-blur-xl border-b border-white/10"
       >
         <div className="px-6 lg:px-8">
@@ -321,7 +352,22 @@ const ClientRegistration = ({ onNavigateToDashboard }) => {
       </motion.header>
 
       {/* Main Content */}
-      <div className="pt-20 px-6 pb-10">
+      <div className="pt-20">
+        <div className="flex">
+          {/* Shared Sidebar */}
+          <Sidebar
+            activeRoute={'client-registration'}
+            counts={{ lrCount: 0, completedCount: 0 }}
+            onRouteChange={(routeId) => {
+              if (routeId === 'dashboard') return onNavigateToDashboard('dashboard')
+              if (routeId === 'bulk-billing') return onNavigateToBulkBilling()
+              if (routeId === 'lr-section') return onNavigateToDashboard('lr-section')
+              if (routeId === 'completed') return onNavigateToDashboard('completed')
+            }}
+            onSearch={(term) => onNavigateToSearch(term, [])}
+          />
+
+          <div className="flex-1 px-6 pb-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -352,6 +398,21 @@ const ClientRegistration = ({ onNavigateToDashboard }) => {
             </motion.div>
           )}
 
+          {/* Error Message */}
+          {errorMessage && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="mb-6 bg-red-500/20 backdrop-blur-xl border border-red-400/30 rounded-2xl p-4 flex items-center space-x-3"
+            >
+              <AlertCircle className="w-6 h-6 text-red-400" />
+              <div>
+                <h4 className="font-semibold text-red-300">Registration Failed</h4>
+                <p className="text-red-200/80 text-sm">{errorMessage}</p>
+              </div>
+            </motion.div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-8">
             {/* Basic Information */}
             <FormSection title="Basic Information" icon={User}>
@@ -365,38 +426,58 @@ const ClientRegistration = ({ onNavigateToDashboard }) => {
                   required
                 />
                 <InputField
-                  label="WhatsApp Number"
-                  value={formData.whatsappNo}
-                  onChange={(value) => handleInputChange('whatsappNo', value)}
-                  placeholder="+91 XXXXX XXXXX"
-                  icon={Phone}
-                  required
+                  label="GST Number"
+                  value={formData.gstin}
+                  onChange={(value) => handleInputChange('gstin', value)}
+                  placeholder="15-digit GST Number"
+                  icon={FileText}
                 />
               </div>
               <InputField
-                label="Email Address"
-                value={formData.email}
-                onChange={(value) => handleInputChange('email', value)}
-                type="email"
-                placeholder="client@example.com"
-                icon={Mail}
-                required
+                label="Address"
+                value={formData.address}
+                onChange={(value) => handleInputChange('address', value)}
+                placeholder="Complete address"
+                icon={MapPin}
               />
             </FormSection>
 
-            {/* Configuration Sections */}
-            {Object.values(memoizedSections).map((section) => (
-              <ConfigurationSection
-                key={section.sectionKey}
-                title={section.title}
-                icon={section.icon}
-                sectionKey={section.sectionKey}
-                fields={section.fields}
-                onUpdateField={updateField}
-                onRemoveField={removeField}
-                onAddField={addField}
+            {/* Branch Information */}
+            <FormSection title="Default Branch (Optional)" icon={Building2}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <InputField
+                  label="Branch Name"
+                  value={formData.branchName}
+                  onChange={(value) => handleInputChange('branchName', value)}
+                  placeholder="e.g., Main Office, Mumbai Branch"
+                  icon={Building2}
+                />
+                <InputField
+                  label="Branch GST Number"
+                  value={formData.branchGstin}
+                  onChange={(value) => handleInputChange('branchGstin', value)}
+                  placeholder="15-digit GST Number for this branch"
+                  icon={FileText}
+                />
+              </div>
+              <InputField
+                label="Branch Address"
+                value={formData.branchAddress}
+                onChange={(value) => handleInputChange('branchAddress', value)}
+                placeholder="Complete branch address"
+                icon={MapPin}
               />
-            ))}
+            </FormSection>
+
+            {/* Template Fields Configuration */}
+            <TemplateFieldsSection
+              title="Document Template Fields"
+              icon={FileText}
+              fields={formData.templateFields}
+              onUpdateField={updateTemplateField}
+              onRemoveField={removeTemplateField}
+              onAddField={addTemplateField}
+            />
 
             {/* Submit Button */}
             <motion.div
@@ -488,6 +569,8 @@ const ClientRegistration = ({ onNavigateToDashboard }) => {
             </motion.div>
           </form>
         </motion.div>
+          </div>
+        </div>
       </div>
     </div>
   );

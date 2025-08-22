@@ -2,7 +2,7 @@ import React from 'react'
 import { motion } from 'framer-motion'
 import { Home } from 'lucide-react'
 
-const Navbar = ({ onNavigateToHome }) => {
+const Navbar = ({ onNavigateToHome, onNavigateToDashboard }) => {
   return (
     <motion.nav
       initial={{ y: -100, opacity: 0 }}
@@ -55,6 +55,7 @@ const Navbar = ({ onNavigateToHome }) => {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
+              onClick={onNavigateToDashboard}
               className="bg-amber-600 hover:bg-amber-500 text-white px-8 py-3 rounded-2xl font-semibold transition-all duration-300 shadow-lg hover:shadow-amber-500/25"
             >
               Access Dashboard

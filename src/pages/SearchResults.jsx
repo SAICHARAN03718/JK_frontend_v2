@@ -19,8 +19,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-// Import mock data functions
-import { getConsignmentByLR } from '../data/mockData';
+// Mock data removed; results are expected to be provided via props.
 
 const SearchResults = ({ onNavigateToDashboard, onNavigateToGenerateBill, searchTerm, searchResults }) => {
   const [selectedLR, setSelectedLR] = useState(null);
@@ -36,14 +35,22 @@ const SearchResults = ({ onNavigateToDashboard, onNavigateToGenerateBill, search
         setSelectedLR(lr);
         loadConsignmentData(lr);
       }
+    } else {
+      // Reset when no results
+      setSelectedLR(null);
+      setConsignmentData(null);
+      setNodeStates({});
     }
   }, [searchResults]);
 
   const loadConsignmentData = (lrNumber) => {
-    const data = getConsignmentByLR(lrNumber);
+    // Since mock data is removed, we try to find the item within provided searchResults
+    const data = Array.isArray(searchResults)
+      ? searchResults.find((item) => item.lrNumber === lrNumber)
+      : null;
     if (data) {
       setConsignmentData(data);
-      setNodeStates(data.workflowStatus);
+      setNodeStates(data.workflowStatus || {});
     }
   };
 
@@ -231,7 +238,7 @@ const SearchResults = ({ onNavigateToDashboard, onNavigateToGenerateBill, search
 
   // LR Selection Component
   const LRSelector = () => {
-    if (!searchResults || searchResults.length <= 1) return null;
+  if (!searchResults || searchResults.length <= 1) return null;
 
     return (
       <motion.div
@@ -1103,8 +1110,8 @@ const SearchResults = ({ onNavigateToDashboard, onNavigateToGenerateBill, search
           </div>
         )}
 
-        {/* No Results State */}
-        {!searchResults || searchResults.length === 0 && (
+  {/* No Results State */}
+  {(!searchResults || searchResults.length === 0) && (
           <div className="text-center py-20">
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}

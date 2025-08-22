@@ -24,16 +24,12 @@ import {
   UserPlus
 } from 'lucide-react'
 
-// Import mock data
-import { 
-  getStatistics, 
-  getRecentShipments, 
-  getConsignmentsByStatus,
-  searchConsignments 
-} from '../data/mockData'
+import Sidebar from '../components/Sidebar'
 
-const Dashboard = ({ onNavigateToHome, onNavigateToSearch, onNavigateToGenerateBill, onNavigateToBulkBilling, onNavigateToClientRegistration }) => {
-  const [activeRoute, setActiveRoute] = useState('dashboard')
+// Mock data removed. Using placeholders with empty datasets.
+
+const Dashboard = ({ onNavigateToHome, onNavigateToSearch, onNavigateToGenerateBill, onNavigateToBulkBilling, onNavigateToClientManagement, initialRoute = 'dashboard' }) => {
+  const [activeRoute, setActiveRoute] = useState(initialRoute)
   const [searchTerm, setSearchTerm] = useState('')
   const [statistics, setStatistics] = useState(null)
   const [recentShipments, setRecentShipments] = useState([])
@@ -41,94 +37,58 @@ const Dashboard = ({ onNavigateToHome, onNavigateToSearch, onNavigateToGenerateB
 
   // Load data on component mount
   useEffect(() => {
-    const stats = getStatistics()
-    const recent = getRecentShipments()
-    setStatistics(stats)
-    setRecentShipments(recent)
-    
-    // Load dashboard view by default
-    setFilteredConsignments(recent)
+    // Initialize empty statistics and consignments
+    const emptyStats = {
+      totalRevenue: '₹0',
+      activeShipments: '0',
+      pendingRevenue: '₹0',
+      netGrossRevenue: '₹0',
+      lrCount: 0,
+      completedCount: 0,
+    }
+    setStatistics(emptyStats)
+    setRecentShipments([])
+    setFilteredConsignments([])
   }, [])
+
+  // If initialRoute changes (navigated from other pages), update activeRoute
+  useEffect(() => {
+    setActiveRoute(initialRoute)
+  }, [initialRoute])
 
   // Handle sidebar route changes
   const handleRouteChange = (routeId) => {
     setActiveRoute(routeId)
     
-    if (routeId === 'bulk-billing') {
+  if (routeId === 'bulk-billing') {
       onNavigateToBulkBilling()
       return
     }
     
-    if (routeId === 'client-registration') {
-      onNavigateToClientRegistration()
+    if (routeId === 'client-management') {
+      onNavigateToClientManagement()
       return
     }
     
     if (routeId === 'dashboard') {
       setFilteredConsignments(recentShipments)
-    } else {
-      const consignments = getConsignmentsByStatus(routeId)
-      setFilteredConsignments(consignments.slice(0, 10)) // Show first 10
+    } else if (routeId === 'lr-section') {
+      // Loaded + Unloaded merged section — currently no data
+      setFilteredConsignments([])
+    } else if (routeId === 'completed') {
+      setFilteredConsignments([])
     }
   }
 
   // Handle search
   const handleSearch = () => {
     if (searchTerm.trim()) {
-      const results = searchConsignments(searchTerm)
-      if (results.length > 0) {
-        // Pass the search term and results to the search page
-        onNavigateToSearch(searchTerm, results)
-      } else {
-        alert(`No results found for "${searchTerm}"`)
-      }
+      // Mock search removed — navigate with empty results for now
+      onNavigateToSearch(searchTerm, [])
     }
   }
 
-  const sidebarItems = [
-    { 
-      id: 'loaded', 
-      label: 'Loaded', 
-      icon: Package, 
-      count: statistics?.loadedCount || 0,
-      description: 'In Transit'
-    },
-    { 
-      id: 'unloaded', 
-      label: 'Unloaded', 
-      icon: PackageCheck, 
-      count: statistics?.unloadedCount || 0,
-      description: 'Delivered'
-    },
-    { 
-      id: 'completed', 
-      label: 'Completed', 
-      icon: CheckCircle, 
-      count: statistics?.completedCount || 0,
-      description: 'Billed'
-    },
-    { 
-      id: 'bulk-billing', 
-      label: 'Bulk Billing', 
-      icon: FileStack, 
-      count: null,
-      description: 'Generate Multiple Bills'
-    },
-    { 
-      id: 'client-registration', 
-      label: 'Client Registration', 
-      icon: UserPlus, 
-      count: null,
-      description: 'Register New Client'
-    },
-    { 
-      id: 'dashboard', 
-      label: 'Dashboard', 
-      icon: BarChart3, 
-      count: null,
-      description: 'Overview'
-    }
-  ]
+  // Sidebar moved to a shared component; keep data counts here
 
   const stats = statistics ? [
     {
@@ -270,8 +230,7 @@ const Dashboard = ({ onNavigateToHome, onNavigateToSearch, onNavigateToGenerateB
 
   const getDisplayTitle = () => {
     switch (activeRoute) {
-      case 'loaded': return 'Loaded Consignments'
-      case 'unloaded': return 'Unloaded Consignments'
+  case 'lr-section': return 'LR Section'
       case 'completed': return 'Completed Consignments'
       default: return 'Recent Shipments'
     }
@@ -279,16 +238,8 @@ const Dashboard = ({ onNavigateToHome, onNavigateToSearch, onNavigateToGenerateB
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Background Image with Overlay */}
+  {/* Background with Overlays (image removed) */}
       <div className="absolute inset-0">
-        {/* Background Image */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{
-            backgroundImage: "url(C:\Users\sai charan\Downloads\Copilot_20250722_214243.png)"
-          }}
-        />
-        
         {/* Dark overlay for better text readability */}
         <div className="absolute inset-0 bg-black/60" />
         
@@ -396,78 +347,18 @@ const Dashboard = ({ onNavigateToHome, onNavigateToSearch, onNavigateToGenerateB
       </motion.header>
 
       <div className="flex relative z-10">
-        {/* Enhanced Sidebar */}
-        <motion.aside
-          initial={{ x: -280, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ delay: 0.4 }}
-          className="w-80 min-h-screen bg-white/10 backdrop-blur-xl border-r border-white/20 shadow-xl"
-        >
-          <div className="p-6 space-y-6">
-            {/* Search Bar */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-white">Search LR Number</h3>
-              <div className="flex items-center space-x-3">
-                <div className="flex-1 relative">
-                  <input
-                    type="text"
-                    placeholder="Enter LR number..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                    className="w-full bg-white/10 border border-white/20 rounded-2xl px-4 py-3 pl-12 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
-                  />
-                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/50" />
-                </div>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleSearch}
-                  className="bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-2xl transition-all duration-300 shadow-lg"
-                >
-                  <Search className="w-5 h-5" />
-                </motion.button>
-              </div>
-            </div>
-
-            {/* Enhanced Navigation Items */}
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold text-white">Navigation</h3>
-              {sidebarItems.map((item, index) => (
-                <motion.button
-                  key={item.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.5 + index * 0.1 }}
-                  whileHover={{ scale: 1.02, x: 4 }}
-                  onClick={() => handleRouteChange(item.id)}
-                  className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all duration-300 ${
-                    activeRoute === item.id
-                      ? 'bg-blue-600 text-white shadow-lg'
-                      : 'bg-white/10 hover:bg-white/20 text-white/90'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <item.icon className="w-6 h-6" />
-                    <div className="text-left">
-                      <span className="font-medium block">{item.label}</span>
-                      <span className="text-xs opacity-80">{item.description}</span>
-                    </div>
-                  </div>
-                  {item.count !== null && (
-                    <span className={`px-3 py-1 rounded-xl text-sm font-bold ${
-                      activeRoute === item.id
-                        ? 'bg-white/20 text-white'
-                        : 'bg-white/20 text-white/80'
-                    }`}>
-                      {item.count}
-                    </span>
-                  )}
-                </motion.button>
-              ))}
-            </div>
-          </div>
-        </motion.aside>
+        {/* Shared Sidebar */}
+        <motion.div initial={{ x: -280, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.4 }}>
+          <Sidebar
+            activeRoute={activeRoute}
+            counts={{ lrCount: statistics?.lrCount ?? 0, completedCount: statistics?.completedCount ?? 0 }}
+            onRouteChange={handleRouteChange}
+            onSearch={(term) => {
+              setSearchTerm(term)
+              handleSearch()
+            }}
+          />
+        </motion.div>
 
         {/* Main Content */}
         <main className="flex-1 p-6 lg:p-8">

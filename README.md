@@ -142,3 +142,18 @@ This is a demo project, but feel free to:
 ---
 
 Built with ❤️ using React, Tailwind CSS, and Framer Motion
+ 
+## Supabase configuration
+
+1. Copy `.env.example` to `.env.local` and set your project values:
+
+```
+VITE_SUPABASE_URL=https://<project>.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon-key>
+```
+
+2. Use the client in code:
+
+```
+import { supabase } from './src/lib/supabaseClient'
+```

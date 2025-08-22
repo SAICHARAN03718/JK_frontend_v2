@@ -27,11 +27,11 @@ import {
   Mail
 } from 'lucide-react';
 
-// Import mock data
-import { allConsignments } from '../data/mockData';
+// Mock data removed; using empty dataset placeholders
 import TemplateSelector from '../components/TemplateSelector';
+import Sidebar from '../components/Sidebar';
 
-const BulkBilling = ({ onNavigateToDashboard, onNavigateToBillSent }) => {
+const BulkBilling = ({ onNavigateToDashboard, onNavigateToBillSent, onNavigateToSearch, onNavigateToClientManagement }) => {
   // State management
   const [selectedCompany, setSelectedCompany] = useState('');
   const [filteredConsignments, setFilteredConsignments] = useState([]);
@@ -77,11 +77,11 @@ const BulkBilling = ({ onNavigateToDashboard, onNavigateToBillSent }) => {
   };
 
   // Get unique companies from consignments
-  const companies = [...new Set(allConsignments.map(c => c.client))].sort();
+  const companies = [];
 
   // Filter consignments based on selected company and other filters
   useEffect(() => {
-    let filtered = allConsignments;
+  let filtered = [];
 
     // Filter by company
     if (selectedCompany) {
@@ -198,7 +198,7 @@ const BulkBilling = ({ onNavigateToDashboard, onNavigateToBillSent }) => {
           <div className="absolute top-1/2 left-1/2 w-[800px] h-[800px] bg-indigo-500/5 rounded-full blur-3xl transform -translate-x-1/2 -translate-y-1/2" />
         </div>
 
-        {/* Header for Template Selection */}
+  {/* Header for Template Selection */}
         <motion.header
           initial={{ y: -60, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -231,7 +231,7 @@ const BulkBilling = ({ onNavigateToDashboard, onNavigateToBillSent }) => {
           </div>
         </motion.header>
 
-        {/* Template Selector */}
+  {/* Template Selector */}
         <div className="relative z-10 p-6 lg:p-8">
           <div className="max-w-4xl mx-auto py-12">
             <TemplateSelector
@@ -260,8 +260,8 @@ const BulkBilling = ({ onNavigateToDashboard, onNavigateToBillSent }) => {
 
       {/* Header */}
       <motion.header
-        initial={{ y: -60, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
+        initial={false}
+        animate={false}
         className="relative z-50 bg-white/5 backdrop-blur-xl border-b border-white/10"
       >
         <div className="px-6 lg:px-8">
@@ -330,7 +330,22 @@ const BulkBilling = ({ onNavigateToDashboard, onNavigateToBillSent }) => {
       </motion.header>
 
       {/* Main Content */}
-      <div className="relative z-10 p-6 lg:p-8">
+      <div className="flex relative z-10">
+        {/* Shared Sidebar */}
+        <Sidebar
+          activeRoute={'bulk-billing'}
+          counts={{ lrCount: 0, completedCount: 0 }}
+          onRouteChange={(routeId) => {
+            if (routeId === 'dashboard') return onNavigateToDashboard('dashboard')
+            if (routeId === 'client-management') return onNavigateToClientManagement()
+            if (routeId === 'bulk-billing') return
+            if (routeId === 'lr-section') return onNavigateToDashboard('lr-section')
+            if (routeId === 'completed') return onNavigateToDashboard('completed')
+          }}
+          onSearch={(term) => onNavigateToSearch(term, [])}
+        />
+
+        <div className="flex-1 p-6 lg:p-8">
         {/* Filters Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -576,7 +591,8 @@ const BulkBilling = ({ onNavigateToDashboard, onNavigateToBillSent }) => {
               </div>
             )}
           </div>
-        </motion.div>
+  </motion.div>
+  </div>
       </div>
 
       {/* Loading Overlay */}

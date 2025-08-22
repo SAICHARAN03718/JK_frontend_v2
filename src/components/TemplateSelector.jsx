@@ -57,7 +57,7 @@ const TemplateSelector = ({
 
   const getBillTypeText = () => {
     if (mode === 'bulk') {
-      return `${selectedConsignments.length} Bills for ${companyName}`;
+      return `${selectedConsignments.length} Bills for ${companyName || 'Selected Company'}`;
     }
     return 'Individual Bill';
   };

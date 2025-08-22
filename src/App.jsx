@@ -1,5 +1,4 @@
 import React, { useState, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 
 // Import pages
 import HomePage from './pages/HomePage'
@@ -9,10 +8,12 @@ import SearchResults from './pages/SearchResults'
 import GenerateBill from './pages/GenerateBill'
 import BillSent from './pages/BillSent'
 import BulkBilling from './pages/BulkBilling'
-import ClientRegistration from './pages/ClientRegistration'
+import ClientManagement from './pages/ClientManagement'
 
 function App() {
   const [currentPage, setCurrentPage] = useState('home')
+  // Track which section of Dashboard to show when navigating back (dashboard | lr-section | completed)
+  const [dashboardRoute, setDashboardRoute] = useState('dashboard')
   const [searchTerm, setSearchTerm] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [selectedConsignment, setSelectedConsignment] = useState(null)
@@ -33,9 +34,10 @@ function App() {
     setCurrentPage('landing')
   }, [])
   
-  const navigateToDashboard = useCallback(() => {
-    console.log('Navigating to dashboard')
+  const navigateToDashboard = useCallback((routeId = 'dashboard') => {
+    console.log('Navigating to dashboard', routeId)
     setBillContext(null) // Clear any bill context when returning to dashboard
+    setDashboardRoute(routeId)
     setCurrentPage('dashboard')
   }, [])
   
@@ -65,9 +67,9 @@ function App() {
     setCurrentPage('bulk-billing')
   }, [])
 
-  const navigateToClientRegistration = useCallback(() => {
-    console.log('Navigating to client-registration')
-    setCurrentPage('client-registration')
+  const navigateToClientManagement = useCallback(() => {
+    console.log('Navigating to client-management')
+    setCurrentPage('client-management')
   }, [])
 
   // Debug logging
@@ -86,21 +88,22 @@ function App() {
       
       case 'landing':
         return (
-          <LandingPage onNavigateToHome={navigateToHome} />
+          <LandingPage onNavigateToHome={navigateToHome} onNavigateToDashboard={navigateToDashboard} />
         )
       
-      case 'dashboard':
+  case 'dashboard':
         return (
           <Dashboard 
             onNavigateToHome={navigateToHome}
             onNavigateToSearch={navigateToSearch}
             onNavigateToGenerateBill={navigateToGenerateBill}
             onNavigateToBulkBilling={navigateToBulkBilling}
-            onNavigateToClientRegistration={navigateToClientRegistration}
+            onNavigateToClientManagement={navigateToClientManagement}
+    initialRoute={dashboardRoute}
           />
         )
       
-      case 'generate-bill':
+  case 'generate-bill':
         return (
           <GenerateBill 
             onNavigateToDashboard={navigateToDashboard}
@@ -114,6 +117,8 @@ function App() {
           <BulkBilling 
             onNavigateToDashboard={navigateToDashboard}
             onNavigateToBillSent={context => navigateToBillSent(context)}
+    onNavigateToSearch={navigateToSearch}
+    onNavigateToClientManagement={navigateToClientManagement}
           />
         )
       
@@ -125,20 +130,22 @@ function App() {
           />
         )
       
-      case 'search':
+  case 'search':
         return (
           <SearchResults 
-            searchTerm={searchTerm}
-            searchResults={searchResults}
+    searchTerm={searchTerm}
+    searchResults={searchResults || []}
             onNavigateToDashboard={navigateToDashboard}
             onNavigateToGenerateBill={navigateToGenerateBill}
           />
         )
       
-      case 'client-registration':
+      case 'client-management':
         return (
-          <ClientRegistration 
+          <ClientManagement 
             onNavigateToDashboard={navigateToDashboard}
+            onNavigateToSearch={navigateToSearch}
+            onNavigateToBulkBilling={navigateToBulkBilling}
           />
         )
       
@@ -150,18 +157,8 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-stone-100 overflow-x-hidden">
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={currentPage}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          {renderCurrentPage()}
-        </motion.div>
-      </AnimatePresence>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-x-hidden">
+      {renderCurrentPage()}
     </div>
   )
 }
