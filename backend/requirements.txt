@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+paddleocr
+pdfplumber
+pdf2image
+pillow
+python-dotenv
+httpx
+supabase

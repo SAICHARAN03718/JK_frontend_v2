@@ -1,0 +1,3 @@
+-- (Partial) Extraction pipeline migration placeholder added earlier in planning (ensure idempotent if rerun)
+-- This file should be expanded with full extraction_jobs table and status enum changes.
+-- See planned detailed migration in previous message.

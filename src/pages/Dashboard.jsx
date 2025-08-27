@@ -25,6 +25,11 @@ import {
 } from 'lucide-react'
 
 import Sidebar from '../components/Sidebar'
+import LrUpload from '../components/LrUpload'
+import LrValidationModal from '../components/LrValidationModal'
+import { fetchLorryReceipts } from '../lib/lrService'
+import { startExtractionJob, getJob } from '../lib/extractionService'
+import { clientRegistrationService } from '../lib/clientRegistrationService'
 
 // Mock data removed. Using placeholders with empty datasets.
 
@@ -34,6 +39,33 @@ const Dashboard = ({ onNavigateToHome, onNavigateToSearch, onNavigateToGenerateB
   const [statistics, setStatistics] = useState(null)
   const [recentShipments, setRecentShipments] = useState([])
   const [filteredConsignments, setFilteredConsignments] = useState([])
+  // LR Upload related state (frontend placeholder)
+  const [lrUploads, setLrUploads] = useState([])
+  const [clients, setClients] = useState([])
+  const [loadingClients, setLoadingClients] = useState(false)
+  const [validationTarget, setValidationTarget] = useState(null)
+  const [jobs, setJobs] = useState({})
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const entries = Object.entries(jobs)
+      if (!entries.length) return
+      for (const [lrId, job] of entries) {
+        if (job.status === 'queued' || job.status === 'processing') {
+          try {
+            const latest = await getJob(job.jobId)
+            setJobs(prev => ({ ...prev, [lrId]: { ...prev[lrId], status: latest.status, progress: latest.progress || prev[lrId].progress } }))
+            if (latest.status === 'completed') {
+              setLrUploads(prev => prev.map(x => x.id == lrId ? { ...x, status: 'Pending_Validation' } : x))
+            }
+            if (latest.status === 'failed') {
+              setLrUploads(prev => prev.map(x => x.id == lrId ? { ...x, status: 'Extraction_Failed' } : x))
+            }
+          } catch {}
+        }
+      }
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [jobs])
 
   // Load data on component mount
   useEffect(() => {
@@ -55,6 +87,57 @@ const Dashboard = ({ onNavigateToHome, onNavigateToSearch, onNavigateToGenerateB
   useEffect(() => {
     setActiveRoute(initialRoute)
   }, [initialRoute])
+
+  // Load clients when entering LR section (or if not yet fetched)
+  useEffect(() => {
+    if (activeRoute === 'lr-section') {
+      (async () => {
+        if (clients.length === 0 && !loadingClients) {
+          try {
+            setLoadingClients(true)
+            const res = await clientRegistrationService.getAllClients()
+            if (res.success) setClients(res.data || [])
+          } catch (e) { console.warn('Client load failed', e) } finally { setLoadingClients(false) }
+        }
+        const recRes = await fetchLorryReceipts({})
+        if (recRes.success) {
+          // Map to display object if not already present
+          setLrUploads(prev => {
+            const existingIds = new Set(prev.map(p => p.id))
+            const merged = [...prev]
+            recRes.data.forEach(r => {
+              if (!existingIds.has(r.lr_id)) {
+                merged.push({
+                  id: r.lr_id,
+                  originalName: r.lr_number + '.pdf',
+                  size: 0,
+                  clientId: r.client_id,
+                  branchId: r.branch_id,
+                  clientName: clients.find(c => c.client_id === r.client_id)?.client_name || 'Client',
+                  branchName: (clients.find(c => c.client_id === r.client_id)?.client_branches || []).find(b => b.branch_id === r.branch_id)?.branch_name,
+                  lrNumber: r.lr_number,
+                  status: r.status,
+                  createdAt: r.created_at
+                })
+              }
+            })
+            return merged.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt))
+          })
+        }
+      })()
+    }
+  }, [activeRoute, clients])
+
+  // Rehydrate client/branch names after clients load
+  useEffect(() => {
+    if (clients.length > 0 && lrUploads.length > 0) {
+      setLrUploads(prev => prev.map(u => ({
+        ...u,
+        clientName: clients.find(c => c.client_id === u.clientId)?.client_name || u.clientName,
+        branchName: (clients.find(c => c.client_id === u.clientId)?.client_branches || []).find(b => b.branch_id === u.branchId)?.branch_name || u.branchName
+      })))
+    }
+  }, [clients])
 
   // Handle sidebar route changes
   const handleRouteChange = (routeId) => {
@@ -415,47 +498,99 @@ const Dashboard = ({ onNavigateToHome, onNavigateToSearch, onNavigateToGenerateB
           )}
 
           {/* Enhanced Consignments List */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.9 }}
-            className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-3xl p-6 lg:p-8 shadow-lg"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-white">{getDisplayTitle()}</h3>
-              <div className="flex items-center space-x-3">
-                <span className="text-white/60 text-sm">
-                  {filteredConsignments.length} items
-                </span>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  className="p-2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-xl transition-all duration-300"
-                >
-                  <Filter className="w-5 h-5" />
-                </motion.button>
-              </div>
-            </div>
-
-            <div className="space-y-4 max-h-96 overflow-y-auto">
-              {filteredConsignments.map((consignment, index) => (
-                <ConsignmentCard 
-                  key={consignment.lrNumber || consignment.id} 
-                  consignment={consignment} 
-                  index={index} 
-                />
-              ))}
-              
-              {filteredConsignments.length === 0 && (
-                <div className="text-center py-12">
-                  <Package className="w-16 h-16 text-white/30 mx-auto mb-4" />
-                  <h4 className="text-xl font-semibold text-white/60 mb-2">No consignments found</h4>
-                  <p className="text-white/40">Try selecting a different category or search for specific LR numbers.</p>
+          {activeRoute !== 'lr-section' && (
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.9 }}
+              className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-3xl p-6 lg:p-8 shadow-lg"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold text-white">{getDisplayTitle()}</h3>
+                <div className="flex items-center space-x-3">
+                  <span className="text-white/60 text-sm">
+                    {filteredConsignments.length} items
+                  </span>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    className="p-2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-xl transition-all duration-300"
+                  >
+                    <Filter className="w-5 h-5" />
+                  </motion.button>
                 </div>
-              )}
-            </div>
-          </motion.div>
+              </div>
+
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {filteredConsignments.map((consignment, index) => (
+                  <ConsignmentCard 
+                    key={consignment.lrNumber || consignment.id} 
+                    consignment={consignment} 
+                    index={index} 
+                  />
+                ))}
+                
+                {filteredConsignments.length === 0 && (
+                  <div className="text-center py-12">
+                    <Package className="w-16 h-16 text-white/30 mx-auto mb-4" />
+                    <h4 className="text-xl font-semibold text-white/60 mb-2">No consignments found</h4>
+                    <p className="text-white/40">Try selecting a different category or search for specific LR numbers.</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {activeRoute === 'lr-section' && (
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.9 }}
+              className="space-y-10"
+            >
+              <LrUpload
+                clients={clients}
+                uploads={lrUploads}
+                onUpload={(obj) => setLrUploads(prev => [obj, ...prev])}
+                onRemove={(id) => setLrUploads(prev => prev.filter(u => u.id !== id))}
+                onRefresh={() => fetchLorryReceipts({}).then(r => { if (r.success) {/* Already merged via effect */} })}
+              />
+              <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-6 lg:p-8 shadow-lg">
+                <h4 className="text-xl font-semibold text-white mb-4">Extraction Jobs</h4>
+                <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                  {lrUploads.map(u => (
+                    <div key={u.id} className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/10">
+                      <div className="text-white text-sm font-medium flex-1">{u.lrNumber}</div>
+                      <div className="text-xs text-white/50 w-40">{jobs[u.id]?.status || 'idle'} {jobs[u.id]?.progress ? `${jobs[u.id].progress}%` : ''}</div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={async () => {
+                          if (jobs[u.id]?.status === 'processing') return
+                          try {
+                            const job = await startExtractionJob(u.id)
+                            setJobs(prev => ({ ...prev, [u.id]: { jobId: job.job_id, status: job.status, progress: 0 } }))
+                          } catch (e) { console.warn(e) }
+                        }} className="text-white/70 hover:text-white text-xs px-3 py-1 rounded-lg bg-blue-600/60 hover:bg-blue-600">Run OCR</button>
+                        <button onClick={() => setValidationTarget(u)} className="text-white/70 hover:text-white text-xs px-3 py-1 rounded-lg bg-emerald-600/60 hover:bg-emerald-600">Validate</button>
+                      </div>
+                    </div>
+                  ))}
+                  {!lrUploads.length && <div className="text-white/50 text-sm">No LRs yet.</div>}
+                </div>
+              </div>
+            </motion.div>
+          )}
         </main>
       </div>
+      <LrValidationModal
+        open={!!validationTarget}
+        lr={validationTarget || { id:null, lrNumber:'' }}
+        clientId={validationTarget?.clientId}
+        branchId={validationTarget?.branchId}
+        onClose={() => setValidationTarget(null)}
+        onValidated={(lrId) => {
+          setLrUploads(prev => prev.map(x => x.id === lrId ? { ...x, status: 'Validated' } : x))
+          setValidationTarget(null)
+        }}
+      />
     </div>
   )
 }
